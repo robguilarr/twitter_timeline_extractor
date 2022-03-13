@@ -25,7 +25,7 @@ import string
 #       - accessTokenSecret: Access token secret provided by Twitter Dev API
 #
 #   !!Output
-#   This class has no output, all final dataframes can be extracted as objects using "tlminer" class
+#   This class has no output, all final dataframes can be extracted as objects using "tlminer" class, by extract an object called data
 #
 #   Dependecies required: tweepy json pandas (Base operations) 
 #                         re string (For cleanText method)
