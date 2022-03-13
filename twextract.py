@@ -11,9 +11,10 @@ import string
 # -------------------------------------------------------------------------------------------------------------------------------
 #   twextract module description
 # -------------------------------------------------------------------------------------------------------------------------------
-#   Miner class (Parent class of "tlminer"): This class is used to extract and subdivide the user timeline into Tweet, Retweet,
+#   *Miner class (Parent class of "tlminer"): This class is used to extract and subdivide the user timeline into Tweet, Retweet,
 #                                           Reply, Quoted as dictionaries without subdictionaries
-#   tlminer class: Class to transform each list of dictionaries into dataframes
+#   *tlminer class: Class to transform each list of dictionaries into dataframes
+#   *Friend_search class: Class to extract friends/followees data from user into a dataframe
 #
 #   !!Input
 #   We have to use as arguments:
@@ -369,9 +370,75 @@ class tlminer(Miner):
         text = re.sub(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', '', text)
 
         return text
-        
+
+
+
+# -------------------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------------------
+# Class to extract friends/followees data from user
+# -------------------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------------------
+class Friend_search():
+    # Init constructor
+    def __init__(self, username, max_length,
+                        consumerKey, consumerSecret,
+                        accessToken, accessTokenSecret):
+        #--------------------------------------------------------------------------------------------------------------------------
+        # Tweepy API connection
+        #--------------------------------------------------------------------------------------------------------------------------
+        # Authorize Access to the API using .OAuthHandler().
+        authenticate = tweepy.OAuthHandler(consumerKey, consumerSecret)
+        # Set the Access tokens.
+        authenticate.set_access_token(accessToken, accessTokenSecret)
+        # Create the API object while passing in the auth information.
+        self.api = tweepy.API(authenticate, wait_on_rate_limit = True) 
+
+        #--------------------------------------------------------------------------------------------------------------------------
+        # Subsetting variables
+        #--------------------------------------------------------------------------------------------------------------------------
+        # Columns fixes
+        self.in_user_cols = ['id','name','screen_name','followers_count',
+                            'friends_count','statuses_count','favourites_count']
+
+        # Get collection of users information
+        # Empty list to allocate dictionaries with user objects
+        friend_list = [] 
+
+        # Loop pagination
+        for friend in tweepy.Cursor(method= self.api.get_friends, screen_name= username).items(max_length):
+            # Empty dict for individual user info
+            new_friend = dict()
+            # Filling new dict
+            for key in self.in_user_cols:
+                new_friend[key] = self.jsonify_tweepy(friend)[key]
+            
+            friend_list.append(new_friend)
+
+        # Transform into dataframe
+        self.data = pd.json_normalize(friend_list)
+
+    #--------------------------------------------------------------------------------------------------------------------------
+    # Function to get info from users, in this case will be useful for replied users
+    #--------------------------------------------------------------------------------------------------------------------------
+    def get_user_info(self, user_id):
+        # Create dictionary from tweepy oject 
+        user_dict = self.jsonify_tweepy(self.api.get_user(user_id = user_id))
+        # Create new comprehensive dictionary with required columns
+        user_dict = {key : user_dict[key] for key in self.in_user_cols}
+        return user_dict
+
+    #--------------------------------------------------------------------------------------------------------------------------
+    # Function to transform a 'tweepy.models.Status' object into a string and then into a Dictionary 
+    #--------------------------------------------------------------------------------------------------------------------------
+    def jsonify_tweepy(self, tweepy_object):
+        # Write : Transform the tweepy's json object and transform into a dictionary 
+        json_str = json.dumps(tweepy_object._json, indent = 2)
+        # Read : Transform the json into a Python Dictionary
+        self.finaljson = json.loads(json_str)
+        return self.finaljson
+
+
 # -------------------------------------------------------------------------------------------------------------------------------
 # About script
 # -------------------------------------------------------------------------------------------------------------------------------
 #   Developed by @robguilarr on March 2022, tested using tweepy 4.4.0
-    
