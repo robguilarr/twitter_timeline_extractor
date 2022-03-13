@@ -11,10 +11,10 @@ import string
 # -------------------------------------------------------------------------------------------------------------------------------
 #   twextract module description
 # -------------------------------------------------------------------------------------------------------------------------------
-#   *Miner class (Parent class of "tlminer"): This class is used to extract and subdivide the user timeline into Tweet, Retweet,
-#                                           Reply, Quoted as dictionaries without subdictionaries
-#   *tlminer class: Class to transform each list of dictionaries into dataframes
-#   *Friend_search class: Class to extract friends/followees data from user into a dataframe
+#   * Miner class (Parent class of "tlminer"): This class is used to extract and subdivide the user timeline into Tweet, Retweet,
+#                                           Reply, Quoted as dictionaries without subdictionaries *
+#   * tlminer class: Class to transform each list of dictionaries into dataframes *
+#   * Friend_search class: Class to extract friends/followees data from user into a dataframe *
 #
 #   !!Input
 #   We have to use as arguments:
@@ -120,15 +120,16 @@ class Miner():
         retweets_keys = self.retweets_keys
         quotes_keys = self.quotes_keys
 
+
         # Get user timeline 
         for tweet in tweepy.Cursor(method= self.api.user_timeline, screen_name= self.screen_name,
                                     tweet_mode = "extended").items(self.max_length):
 
             # Convert twitter status into a dictionary and validate if contains an extended version
             try:
-                newtweet = self.jsonify_tweepy(tweet.extended_tweet)
+                newtweet = jsonify_tweepy(tweet.extended_tweet)
             except AttributeError:
-                newtweet = self.jsonify_tweepy(tweet)
+                newtweet = jsonify_tweepy(tweet)
 
             # Subset quoted tweets
             if 'quoted_status' in newtweet.keys():
@@ -205,7 +206,7 @@ class Miner():
                 # Create Empty dictionary
                 replied_status = dict()
                 # Return replied user info in a dictionary
-                replied_user_info = self.get_user_info(user_id = newtweet['in_reply_to_user_id'])
+                replied_user_info = self.get_user_info(user_id = newtweet['in_reply_to_user_id_str'], kind='target_node')
                 # Loop over replied tweet keys
                 for key in replies_keys:
                         # Add entities info to dict
@@ -263,26 +264,16 @@ class Miner():
                 # Append new dictionary to tweets list
                 self.tweets.append(normal_status)
 
-    
-    #--------------------------------------------------------------------------------------------------------------------------
-    # Function to transform a 'tweepy.models.Status' object into a string and then into a Dictionary 
-    #--------------------------------------------------------------------------------------------------------------------------
-    def jsonify_tweepy(self, tweepy_object):
-        # Write : Transform the tweepy's json object and transform into a dictionary 
-        json_str = json.dumps(tweepy_object._json, indent = 2)
-        # Read : Transform the json into a Python Dictionary
-        self.finaljson = json.loads(json_str)
-        return self.finaljson
-
     #--------------------------------------------------------------------------------------------------------------------------
     # Function to get info from users, in this case will be useful for replied users
     #--------------------------------------------------------------------------------------------------------------------------
-    def get_user_info(self, user_id):
+    def get_user_info(self, user_id, kind):
         # Create dictionary from tweepy oject 
-        user_dict = self.jsonify_tweepy(self.api.get_user(user_id = user_id))
+        user_dict = jsonify_tweepy(self.api.get_user(user_id = user_id))
         # Create new comprehensive dictionary with required columns
-        user_dict = {'in_reply_to_status.'+ key : user_dict[key] for key in self.in_user_cols}
+        user_dict = {kind+'.'+key : user_dict[key] for key in self.in_user_cols}
         return user_dict
+
 
 # -------------------------------------------------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------------------------------------------
@@ -296,6 +287,7 @@ class tlminer(Miner):
         super().__init__(username, max_length,
                         consumerKey, consumerSecret,
                         accessToken, accessTokenSecret)
+
 
         # Transform each list of dictionaries into dataframes
         try:
@@ -331,7 +323,6 @@ class tlminer(Miner):
         # Fix index repetition issue
         self.data = data.reset_index().drop(columns=['index'])
 
-
     #--------------------------------------------------------------------------------------------------------------------------
     # Function to make last transformations on individual Dataframes 
     #--------------------------------------------------------------------------------------------------------------------------
@@ -343,33 +334,9 @@ class tlminer(Miner):
         # Set label for type of tweet
         df['type'] = [kind for i in range(df.shape[0])]
         # Clean text label
-        df['full_text'] = df['full_text'].apply(self.cleanText)
+        df['full_text'] = df['full_text'].apply(cleanText)
 
         return df
-
-    # -------------------------------------------------------------------------------------------------------------------------------
-    # Twitter text cleaner, additional method
-    # -------------------------------------------------------------------------------------------------------------------------------
-    def cleanText(self, text):
-        # Remove @mentions
-        text = re.sub(r'@[A-Za-z0-9]+', '', text)
-        # Remove hashtags, just the numeral
-        text = re.sub(r'#', '', text)
-        # Remove tweets with Retweets followed by one or more whitespaces
-        text = re.sub(r'RT[\s]+', '', text)
-        # Get rid of an URL or hypelink
-        text = re.sub(r'https?://(www\.)?(\w+)(\.\w+)', '', text)
-        # Remove words with punctuations
-        text = re.sub(r'[%s]' % re.escape(string.punctuation), '', text)
-        text = re.sub(r'’', '', text)
-        # Remove words with numbers 
-        text = re.sub(r'\w*\d\w*', '', text)
-        # Remove emojis
-        text = re.sub(r"/[^\u1F600-\u1F6FF\s]/i", '', text)
-        # Remove emails
-        text = re.sub(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', '', text)
-
-        return text
 
 
 
@@ -397,7 +364,7 @@ class Friend_search():
         # Subsetting variables
         #--------------------------------------------------------------------------------------------------------------------------
         # Columns fixes
-        self.in_user_cols = ['id','name','screen_name','followers_count',
+        self.in_user_cols = ['id','name','screen_name','description','followers_count',
                             'friends_count','statuses_count','favourites_count']
 
         # Get collection of users information
@@ -410,32 +377,71 @@ class Friend_search():
             new_friend = dict()
             # Filling new dict
             for key in self.in_user_cols:
-                new_friend[key] = self.jsonify_tweepy(friend)[key]
+                new_friend[key] = jsonify_tweepy(friend)[key]
             
             friend_list.append(new_friend)
 
+        
         # Transform into dataframe
         self.data = pd.json_normalize(friend_list)
 
-    #--------------------------------------------------------------------------------------------------------------------------
-    # Function to get info from users, in this case will be useful for replied users
-    #--------------------------------------------------------------------------------------------------------------------------
-    def get_user_info(self, user_id):
-        # Create dictionary from tweepy oject 
-        user_dict = self.jsonify_tweepy(self.api.get_user(user_id = user_id))
-        # Create new comprehensive dictionary with required columns
-        user_dict = {key : user_dict[key] for key in self.in_user_cols}
-        return user_dict
+        # Clean descriptions
+        self.data.description = self.data.description.apply(cleanText)
 
-    #--------------------------------------------------------------------------------------------------------------------------
-    # Function to transform a 'tweepy.models.Status' object into a string and then into a Dictionary 
-    #--------------------------------------------------------------------------------------------------------------------------
-    def jsonify_tweepy(self, tweepy_object):
-        # Write : Transform the tweepy's json object and transform into a dictionary 
-        json_str = json.dumps(tweepy_object._json, indent = 2)
-        # Read : Transform the json into a Python Dictionary
-        self.finaljson = json.loads(json_str)
-        return self.finaljson
+
+
+# -------------------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------------------
+# Global Scope functions
+# -------------------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------------------------------------------------------
+# Function to transform a 'tweepy.models.Status' object into a string and then into a Dictionary 
+#--------------------------------------------------------------------------------------------------------------------------
+def jsonify_tweepy(tweepy_object):
+    # Write : Transform the tweepy's json object and transform into a dictionary 
+    json_str = json.dumps(tweepy_object._json, indent = 2)
+    # Read : Transform the json into a Python Dictionary
+    finaljson = json.loads(json_str)
+    return finaljson
+
+# -------------------------------------------------------------------------------------------------------------------------------
+# Twitter text cleaner, additional method
+# -------------------------------------------------------------------------------------------------------------------------------
+def cleanText(text):
+    # Remove @mentions
+    text = re.sub(r'@[A-Za-z0-9]+', '', text)
+    # Remove hashtags, just the numeral
+    text = re.sub(r'#', '', text)
+    # Remove tweets with Retweets followed by one or more whitespaces
+    text = re.sub(r'RT[\s]+', '', text)
+    # Get rid of an URL or hypelink
+    text = re.sub(r'https?://(www\.)?(\w+)(\.\w+)', '', text)
+    # Remove words with punctuations
+    text = re.sub(r'[%s]' % re.escape(string.punctuation), '', text)
+    text = re.sub(r'’', '', text)
+    # Remove words with numbers 
+    text = re.sub(r'\w*\d\w*', '', text)
+    # Remove emojis
+    text = deEmojify(text)
+    # Remove emails
+    text = re.sub(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', '', text)
+    # Lowercase the text
+    text = text.lower()
+    return text
+
+# -------------------------------------------------------------------------------------------------------------------------------
+# Emoji remover by @Abdul-Razak Adam https://stackoverflow.com/questions/33404752/removing-emojis-from-a-string-in-python
+# -------------------------------------------------------------------------------------------------------------------------------
+def deEmojify(text):
+    regrex_pattern = re.compile(pattern = "["
+        u"\U0001F600-\U0001F64F"  # emoticons
+        u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+        u"\U0001F680-\U0001F6FF"  # transport & map symbols
+        u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
+                           "]+", flags = re.UNICODE)
+    return regrex_pattern.sub(r'',text)
 
 
 # -------------------------------------------------------------------------------------------------------------------------------
