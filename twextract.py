@@ -34,7 +34,11 @@ import string
 #       - This script was tested using version 4.4.0
 # -------------------------------------------------------------------------------------------------------------------------------
 
+# -------------------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------------------
 # Class to start mining tweets and keep output dictionaries at one level
+# -------------------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------------------
 class Miner():
     # Init constructor
     def __init__(self, username, max_length,
@@ -64,7 +68,7 @@ class Miner():
 
         # Keys for subsetting
         # For basic tweets
-        self.tweets_keys = ['id','full_text','user','favorited','entities']
+        self.tweets_keys = ['id','created_at','full_text','user','favorited','entities']
         # For replies
         self.replies_keys = self.tweets_keys.copy()
         # For retweets
@@ -73,6 +77,28 @@ class Miner():
         # For quoted tweets
         self.quotes_keys = self.tweets_keys.copy()
         self.quotes_keys.append('quoted_status')
+
+        #--------------------------------------------------------------------------------------------------------------------------
+        # Variable to rename columns
+        #--------------------------------------------------------------------------------------------------------------------------
+        self.dict_changer = {'user.name':'source_node.name','user.screen_name':'source_node.screen_name',
+        # For source Node
+        'user.followers_count':'source_node.followers_count','user.friends_count':'source_node.friends_count',
+        'user.statuses_count':'source_node.statuses_count','user.favourites_count':'source_node.favourites_count',
+        'favorited':'favorited_by_source', 'id':'tweet_id',
+        # For Target Node (Replies)
+        'in_reply_to_status.name':'target_node.name','in_reply_to_status.screen_name':'target_node.screen_name',
+        'in_reply_to_status.followers_count':'target_node.followers_count','in_reply_to_status.friends_count':'target_node.friends_count',
+        'in_reply_to_status.statuses_count':'target_node.statuses_count','in_reply_to_status.favourites_count':'target_node.favourites_count',
+        # For Target Node (Retweets)
+        'retweeted_status.user.name':'target_node.name','retweeted_status.user.screen_name':'target_node.screen_name',
+        'retweeted_status.user.followers_count':'target_node.followers_count','retweeted_status.user.friends_count':'target_node.friends_count',
+        'retweeted_status.user.statuses_count':'target_node.statuses_count','retweeted_status.user.favourites_count':'target_node.favourites_count',
+        # For Target Node (Quoted)
+        'quoted_status.user.name':'target_node.name','quoted_status.user.screen_name':'target_node.screen_name',
+        'quoted_status.user.followers_count':'target_node.followers_count','quoted_status.user.friends_count':'target_node.friends_count',
+        'quoted_status.user.statuses_count':'target_node.statuses_count','quoted_status.user.favourites_count':'target_node.favourites_count'
+        }
 
         #--------------------------------------------------------------------------------------------------------------------------
         # Final step: extract DFs
@@ -178,7 +204,7 @@ class Miner():
                 # Create Empty dictionary
                 replied_status = dict()
                 # Return replied user info in a dictionary
-                replied_user_info = self.get_user_info(user_id = newtweet['in_reply_to_user_id_str'])
+                replied_user_info = self.get_user_info(user_id = newtweet['in_reply_to_user_id'])
                 # Loop over replied tweet keys
                 for key in replies_keys:
                         # Add entities info to dict
@@ -252,13 +278,16 @@ class Miner():
     #--------------------------------------------------------------------------------------------------------------------------
     def get_user_info(self, user_id):
         # Create dictionary from tweepy oject 
-        user_dict = self.jsonify_tweepy(self.api.get_user(id = user_id))
+        user_dict = self.jsonify_tweepy(self.api.get_user(user_id = user_id))
         # Create new comprehensive dictionary with required columns
         user_dict = {'in_reply_to_status.'+ key : user_dict[key] for key in self.in_user_cols}
         return user_dict
 
-
+# -------------------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------------------
 # Class to transform each list of dictionaries into dataframes
+# -------------------------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------------------------
 class tlminer(Miner):
     def __init__(self, username, max_length,
                         consumerKey, consumerSecret,
@@ -266,37 +295,80 @@ class tlminer(Miner):
         super().__init__(username, max_length,
                         consumerKey, consumerSecret,
                         accessToken, accessTokenSecret)
+
         # Transform each list of dictionaries into dataframes
-        if self.tweets != []:
-            self.tweetsDF = pd.json_normalize(self.tweets)
-        elif self.retweets != []:
-            self.retweetsDF = pd.json_normalize(self.retweets)
-        elif self.quotes != []:
-            self.quotedDF = pd.json_normalize(self.quotes)
-        elif self.replies != []:
-            self.repliesDF = pd.json_normalize(self.replies)
+        try:
+            # Individual transformations
+            tweetsDF = self.transformer(tweets_list = self.tweets, kind = 'Tweet')
+        except:
+            tweetsDF = pd.DataFrame()
+            print('No tweets')
+
+        try:
+            # Individual transformations
+            retweetsDF = self.transformer(tweets_list = self.retweets, kind = 'Retweet')
+        except:
+            retweetsDF = pd.DataFrame()
+            print('No retweets')
+
+        try:
+            # Individual transformations
+            quotedDF = self.transformer(tweets_list = self.quotes, kind = 'Quoted')
+        except:
+            quotedDF = pd.DataFrame()
+            print('No quoted tweets')
+
+        try:
+            # Individual transformations
+            repliesDF = self.transformer(tweets_list = self.replies, kind = 'Replied')
+        except:
+            repliesDF = pd.DataFrame()
+            print('No replied tweets')
+
+        # Final output -- MERGE all dataframes into one by equal columns
+        data  = pd.concat([tweetsDF, quotedDF, repliesDF, retweetsDF], axis = 0)
+        # Fix index repetition issue
+        self.data = data.reset_index().drop(columns=['index'])
 
 
-# Twitter text cleaner, additional method for further use
-def cleanText(text):
-    # Remove @mentions
-    text = re.sub(r'@[A-Za-z0-9]+', '', text)
-    # Remove hashtags, just the numeral
-    text = re.sub(r'#', '', text)
-    # Remove tweets with Retweets followed by one or more whitespaces
-    text = re.sub(r'RT[\s]+', '', text)
-    # Get rid of an URL or hypelink
-    text = re.sub(r'https?://(www\.)?(\w+)(\.\w+)', '', text)
-    # Remove words with punctuations
-    text = re.sub(r'[%s]' % re.escape(string.punctuation), '', text)
-    # Remove words with numbers 
-    text = re.sub(r'\w*\d\w*', '', text)
-    # Remove emojis
-    text = re.sub(r"/[^\u1F600-\u1F6FF\s]/i", '', text)
-    # Remove emails
-    text = re.sub(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', '', text)
+    #--------------------------------------------------------------------------------------------------------------------------
+    # Function to make last transformations on individual Dataframes 
+    #--------------------------------------------------------------------------------------------------------------------------
+    def transformer(self, tweets_list, kind):
+        # Transform into dataframe
+        df = pd.json_normalize(tweets_list)
+        # Rename columns (To source and target node)
+        df = df.rename(columns=self.dict_changer)
+        # Set label for type of tweet
+        df['type'] = [kind for i in range(df.shape[0])]
+        # Clean text label
+        df['full_text'] = df['full_text'].apply(self.cleanText)
 
-    return text
+        return df
+
+    # -------------------------------------------------------------------------------------------------------------------------------
+    # Twitter text cleaner, additional method
+    # -------------------------------------------------------------------------------------------------------------------------------
+    def cleanText(self, text):
+        # Remove @mentions
+        text = re.sub(r'@[A-Za-z0-9]+', '', text)
+        # Remove hashtags, just the numeral
+        text = re.sub(r'#', '', text)
+        # Remove tweets with Retweets followed by one or more whitespaces
+        text = re.sub(r'RT[\s]+', '', text)
+        # Get rid of an URL or hypelink
+        text = re.sub(r'https?://(www\.)?(\w+)(\.\w+)', '', text)
+        # Remove words with punctuations
+        text = re.sub(r'[%s]' % re.escape(string.punctuation), '', text)
+        text = re.sub(r'’', '', text)
+        # Remove words with numbers 
+        text = re.sub(r'\w*\d\w*', '', text)
+        # Remove emojis
+        text = re.sub(r"/[^\u1F600-\u1F6FF\s]/i", '', text)
+        # Remove emails
+        text = re.sub(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', '', text)
+
+        return text
         
 # -------------------------------------------------------------------------------------------------------------------------------
 # About script
