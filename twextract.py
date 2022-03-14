@@ -20,6 +20,7 @@ import string
 #   We have to use as arguments:
 #       - username: Screen name of the user from we want to extract the timeline
 #       - max_length: Max number of tweets to request. These are extracted from lastest to earliest
+#       - path: Final path to save the csv
 #       - consumerKey: Consumer key provided by Twitter Dev API
 #       - consumerSecret: Consumer secret provided by Twitter Dev API
 #       - accessToken: Access token provided by Twitter Dev API
@@ -42,7 +43,7 @@ import string
 # -------------------------------------------------------------------------------------------------------------------------------
 class Miner():
     # Init constructor
-    def __init__(self, username, max_length,
+    def __init__(self, username, max_length, path,
                         consumerKey, consumerSecret,
                         accessToken, accessTokenSecret):
         #--------------------------------------------------------------------------------------------------------------------------
@@ -57,7 +58,9 @@ class Miner():
         # Set the Access tokens.
         authenticate.set_access_token(accessToken, accessTokenSecret)
         # Create the API object while passing in the auth information.
-        self.api = tweepy.API(authenticate, wait_on_rate_limit = True) 
+        self.api = tweepy.API(authenticate, wait_on_rate_limit = True)
+        # Filepath to write final csv
+        self.path = path
 
         #--------------------------------------------------------------------------------------------------------------------------
         # Subsetting variables
@@ -281,10 +284,10 @@ class Miner():
 # -------------------------------------------------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------------------------------------------
 class tlminer(Miner):
-    def __init__(self, username, max_length,
+    def __init__(self, username, max_length, path,
                         consumerKey, consumerSecret,
                         accessToken, accessTokenSecret):
-        super().__init__(username, max_length,
+        super().__init__(username, max_length, path,
                         consumerKey, consumerSecret,
                         accessToken, accessTokenSecret)
 
@@ -322,6 +325,8 @@ class tlminer(Miner):
         data  = pd.concat([tweetsDF, quotedDF, repliesDF, retweetsDF], axis = 0)
         # Fix index repetition issue
         self.data = data.reset_index().drop(columns=['index'])
+        # Write final output in csv
+        self.data.to_csv(self.path)
 
     #--------------------------------------------------------------------------------------------------------------------------
     # Function to make last transformations on individual Dataframes 
@@ -347,7 +352,7 @@ class tlminer(Miner):
 # -------------------------------------------------------------------------------------------------------------------------------
 class Friend_search():
     # Init constructor
-    def __init__(self, username, max_length,
+    def __init__(self, username, max_length, path,
                         consumerKey, consumerSecret,
                         accessToken, accessTokenSecret):
         #--------------------------------------------------------------------------------------------------------------------------
@@ -387,6 +392,9 @@ class Friend_search():
 
         # Clean descriptions
         self.data.description = self.data.description.apply(cleanText)
+
+        # Write final output in csv
+        self.data.to_csv(path)
 
 
 
