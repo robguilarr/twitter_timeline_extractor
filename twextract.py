@@ -27,7 +27,9 @@ import string
 #       - accessTokenSecret: Access token secret provided by Twitter Dev API
 #
 #   !!Output
-#   This class has no output, all final dataframes can be extracted as objects using "tlminer" class, by extract an object called data
+#   This class has no output, all final dataframes can be extracted as objects using "tlminer" class, by extract an object called 'data'
+#   Giver Metric: Proportion between the amount of likes give by participation in tweets
+#   Balanced Metric: Proportion between the amount of friends by amount of followers
 #
 #   Dependecies required: tweepy json pandas (Base operations) 
 #                         re string (For cleanText method)
@@ -322,9 +324,15 @@ class tlminer(Miner):
             print('No replied tweets')
 
         # Final output -- MERGE all dataframes into one by equal columns
-        data  = pd.concat([tweetsDF, quotedDF, repliesDF, retweetsDF], axis = 0)
+        self.data  = pd.concat([tweetsDF, quotedDF, repliesDF, retweetsDF], axis = 0)
         # Fix index repetition issue
-        self.data = data.reset_index().drop(columns=['index'])
+        self.data = self.data.reset_index().drop(columns=['index'])
+        # Create final column for Giver Metric
+        self.data['source_node.Giver'] = self.data['source_node.favourites_count'] / self.data['source_node.statuses_count']
+        self.data['target_node.Giver'] = self.data['target_node.favourites_count'] / self.data['target_node.statuses_count']
+        # Create final column for Balanced Metric
+        self.data['source_node.Balanced'] = self.data['source_node.friends_count'] / self.data['source_node.followers_count']
+        self.data['target_node.Balanced'] = self.data['target_node.friends_count'] / self.data['target_node.followers_count']
         # Write final output in csv
         self.data.to_csv(self.path)
 
@@ -392,6 +400,12 @@ class Friend_search():
 
         # Clean descriptions
         self.data.description = self.data.description.apply(cleanText)
+
+        # Create final column for Giver Metric
+        self.data['Giver'] = self.data.favourites_count / self.data.statuses_count
+
+        # Create final column for Balanced Metric
+        self.data['Balanced'] = self.data.friends_count / self.data.followers_count
 
         # Write final output in csv
         self.data.to_csv(path)
