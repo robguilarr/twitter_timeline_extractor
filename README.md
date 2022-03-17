@@ -3,7 +3,7 @@ Module to extract multiple datasets for timeline tweets. It take a list of tweet
 
 As result we get one level dictionaries converted into datasets, each of them need to be extracted as objects from tlminer class.
 
-Additionally, this module conatains a text cleanear built using regular expressions syntax 
+Additionally, this module contains a text cleanear built using regular expressions syntax 
 
 
 <p align="center">
