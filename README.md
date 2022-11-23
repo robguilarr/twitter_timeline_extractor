@@ -7,22 +7,20 @@ Additionally, this module contains a text cleanear built using regular expressio
 
 
 <p align="center">
- <img width="50%" height="50%" src="https://snipstock.com/assets/cdn/png/c907ed5b7bfe3a7f02c942f6b014f34c.png">
+ <img width="50%" height="50%" src="https://assets.stickpng.com/thumbs/580b57fcd9996e24bc43c53e.png">
 </p>
 
 
 ## About the Author
 
-- GitHub | [https://github.com](https://github.com/robguilarr "Visit GitHub Overview")
-
-- Medium | [https://medium.com](https://medium.com/@robguilarr "Visit Medium Profile")
-
-- Twitter | [https://twitter.com](https://twitter.com/robguilarr "Visit Twitter Profile")
-
-- Facebook | [https://facebook.com](https://www.facebook.com/robguilarr/ "Visit Facebook Profile")
-
-- Instagram | [https://instagram.com](https://www.instagram.com/robguilarr/ "Visit Instagram Profile")
+- Website | [https://robguilar.com](https://www.robguilar.com "Visit Portfolio Website")
 
 - LinkedIn | [https://linkedin.com](https://www.linkedin.com/in/robguilarr/ "Visit LinkedIn Profile")
 
-- DataCamp | [https://datacamp.com](https://www.datacamp.com/profile/robguilarr "Visit DataCamp Profile")
+- GitHub | [https://github.com](https://github.com/robguilarr "Visit GitHub Overview")
+
+- Twitter | [https://twitter.com](https://twitter.com/robguilarr "Visit Twitter Profile")
+
+- Instagram | [https://instagram.com](https://www.instagram.com/robguilarr/ "Visit Instagram Profile")
+
+- Figma | [https://www.figma.com](https://www.figma.com/@robguilarr "Visit Figma Profile")
